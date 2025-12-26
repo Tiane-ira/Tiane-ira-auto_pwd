@@ -1,42 +1,39 @@
 {
-    "name":"自动填充密码器",
-    "description":"这是一款登录页面，自动填充密码chrome浏览器插件，By Heavy",
-    "version":"1.0.0",
-    "manifest_version":2,
-    "browser_action":{
-        "default_icon":"icons/icon.png",
-        "default_title":"自动填充密码器",
-        "default_popup": "popup.html"
-    },
-    "icons":{
-        "16": "icons/icon.png",
-        "19": "icons/icon.png",
-        "38": "icons/icon.png",
-        "48": "icons/icon.png",
-        "128": "icons/icon.png"
-    },
-    "permissions": [
-        "http://*/", 
-        "bookmarks", 
-        "tabs", 
-        "background", 
-        "history" 
-    ],
-    "background": {
-      "scripts": ["js/jquery.min.js","background/main.js"]
-    },
-    "content_scripts": [
-        {
-          "all_frames": true,
-          "js": [
-            "content/main.js"
-          ],
-          "matches": [
-            "http://*/*",
-            "https://*/*",
-            "file:///*"
-          ],
-          "run_at": "document_end"
-        }
-    ]
+  "manifest_version": 3,
+  "name": "Auto Fill Extension",
+  "version": "1.0.0",
+  "description": "支持使用CSS Selector和XPath进行元素选择和填充的浏览器插件",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  }
 }
+

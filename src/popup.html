@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自动填充规则管理</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>自动填充规则</h1>
+      <div class="header-actions">
+        <label class="switch-container">
+          <input type="checkbox" id="autoFillToggle" checked>
+          <span class="switch-label">自动填充</span>
+        </label>
+        <button id="addRuleBtn" class="btn btn-primary">+ 添加规则</button>
+      </div>
+    </header>
+
+    <!-- Tab切换 -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="current">当前网址</button>
+      <button class="tab-btn" data-tab="all">所有规则</button>
+    </div>
+
+    <!-- 当前网址匹配的规则 -->
+    <div id="currentTab" class="tab-content active">
+      <div id="currentRulesList" class="rules-list">
+        <!-- 当前网址匹配的规则将动态生成 -->
+      </div>
+    </div>
+
+    <!-- 按网址分组的规则列表 -->
+    <div id="allTab" class="tab-content">
+      <div id="allRulesList" class="rules-list">
+        <!-- 按网址分组的规则将动态生成 -->
+      </div>
+    </div>
+
+    <!-- 添加/编辑规则模态框 -->
+    <div id="ruleModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">添加规则</h2>
+          <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="ruleForm">
+            <div class="form-group">
+              <label for="urlsList">绑定网址列表:</label>
+              <div class="urls-container">
+                <div id="urlsList" class="urls-list"></div>
+                <div class="url-input-group">
+                  <input type="text" id="urlInput" placeholder="输入网址或点击右侧按钮添加当前网址" class="url-input">
+                  <button type="button" id="addCurrentUrlBtn" class="btn btn-small">添加当前网址</button>
+                  <button type="button" id="addUrlBtn" class="btn btn-small btn-primary">添加</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="selectorType">填充方式:</label>
+              <select id="selectorType" required>
+                <option value="css">CSS Selector</option>
+                <option value="xpath">XPath</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="selector">选择器:</label>
+              <textarea id="selector" required placeholder="输入CSS选择器或XPath表达式" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="fillValue">填充值:</label>
+              <input type="text" id="fillValue" required placeholder="要填充的文本内容">
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">保存</button>
+              <button type="button" class="btn btn-secondary" id="cancelBtn">取消</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
