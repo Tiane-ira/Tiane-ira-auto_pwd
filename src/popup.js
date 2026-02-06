@@ -26,6 +26,7 @@ const addUrlBtn = document.getElementById('addUrlBtn');
 const addCurrentUrlBtn = document.getElementById('addCurrentUrlBtn');
 const tabButtons = document.querySelectorAll('.tab-btn');
 const autoFillToggle = document.getElementById('autoFillToggle');
+const fillValueInput = document.getElementById('fillValue'); // 填充值输入框
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -134,6 +135,135 @@ function matchesCurrentUrl(rule) {
   return result;
 }
 
+// 获取所有唯一的填充值，用于自动完成
+function getAllFillValues() {
+  const values = new Set();
+  rules.forEach(rule => {
+    if (rule.fillValue) {
+      values.add(rule.fillValue);
+    }
+  });
+  return Array.from(values);
+}
+
+// 创建自动完成下拉菜单
+function initAutocomplete() {
+  const fillValueInput = document.getElementById('fillValue');
+  if (!fillValueInput) return;
+  
+  // 创建自动完成容器
+  const autocompleteContainer = document.createElement('div');
+  autocompleteContainer.className = 'autocomplete-container';
+  autocompleteContainer.style.position = 'relative';
+  
+  // 包装输入框
+  fillValueInput.parentNode.insertBefore(autocompleteContainer, fillValueInput);
+  autocompleteContainer.appendChild(fillValueInput);
+  
+  // 创建下拉列表
+  const suggestionsList = document.createElement('ul');
+  suggestionsList.className = 'autocomplete-suggestions';
+  suggestionsList.style.display = 'none';
+  autocompleteContainer.appendChild(suggestionsList);
+  
+  let currentFocus = -1;
+  let allSuggestions = [];
+  
+  // 输入事件监听
+  fillValueInput.addEventListener('input', function(e) {
+    const inputValue = this.value.toLowerCase();
+    
+    // 清空之前的建议
+    suggestionsList.innerHTML = '';
+    currentFocus = -1;
+    
+    if (!inputValue) {
+      suggestionsList.style.display = 'none';
+      return;
+    }
+    
+    // 获取所有填充值并过滤匹配的值
+    allSuggestions = getAllFillValues().filter(value => 
+      value.toLowerCase().includes(inputValue)
+    );
+    
+    if (allSuggestions.length === 0) {
+      suggestionsList.style.display = 'none';
+      return;
+    }
+    
+    // 生成建议列表项
+    allSuggestions.forEach((value, index) => {
+      const suggestionItem = document.createElement('li');
+      suggestionItem.className = 'autocomplete-suggestion';
+      suggestionItem.innerHTML = highlightMatch(value, inputValue);
+      suggestionItem.addEventListener('click', function() {
+        fillValueInput.value = value;
+        suggestionsList.style.display = 'none';
+        currentFocus = -1;
+      });
+      suggestionsList.appendChild(suggestionItem);
+    });
+    
+    suggestionsList.style.display = 'block';
+  });
+  
+  // 点击其他地方隐藏建议列表
+  document.addEventListener('click', function(e) {
+    if (e.target !== fillValueInput) {
+      suggestionsList.style.display = 'none';
+      currentFocus = -1;
+    }
+  });
+  
+  // 键盘导航
+  fillValueInput.addEventListener('keydown', function(e) {
+    const items = suggestionsList.querySelectorAll('.autocomplete-suggestion');
+    if (!items.length) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      currentFocus = (currentFocus + 1) % items.length;
+      setActive(items, currentFocus);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      currentFocus = (currentFocus - 1 + items.length) % items.length;
+      setActive(items, currentFocus);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentFocus > -1 && items[currentFocus]) {
+        items[currentFocus].click();
+      }
+    } else if (e.key === 'Escape') {
+      suggestionsList.style.display = 'none';
+      currentFocus = -1;
+    }
+  });
+}
+
+// 高亮匹配的文本
+function highlightMatch(text, match) {
+  const index = text.toLowerCase().indexOf(match.toLowerCase());
+  if (index === -1) return text;
+  
+  const before = text.substring(0, index);
+  const matched = text.substring(index, index + match.length);
+  const after = text.substring(index + match.length);
+  
+  return `${escapeHtml(before)}<strong>${escapeHtml(matched)}</strong>${escapeHtml(after)}`;
+}
+
+// 设置活动项
+function setActive(items, index) {
+  // 移除所有活动项的高亮
+  items.forEach(item => item.classList.remove('autocomplete-active'));
+  
+  // 高亮当前项
+  if (items[index]) {
+    items[index].classList.add('autocomplete-active');
+  }
+}
+
 // 设置事件监听器
 function setupEventListeners() {
   addRuleBtn.addEventListener('click', () => openModal());
@@ -148,6 +278,9 @@ function setupEventListeners() {
       addUrlFromInput();
     }
   });
+  
+  // 自动完成初始化
+  initAutocomplete();
   
   // Tab切换
   tabButtons.forEach(btn => {
@@ -302,7 +435,6 @@ function renderCurrentUrlRules() {
       <div class="empty-state">
         <p>当前网址没有匹配的规则</p>
         <p style="font-size: 12px; color: #999; margin-top: 10px;">当前网址: ${escapeHtml(currentPageUrl)}</p>
-        <button class="btn btn-primary" style="margin-top: 15px;" onclick="document.getElementById('addRuleBtn').click()">添加规则</button>
       </div>
     `;
   } else {
@@ -326,7 +458,6 @@ function renderAllRulesByUrl() {
     allRulesList.innerHTML = `
       <div class="empty-state">
         <p>还没有添加任何规则</p>
-        <button class="btn btn-primary" onclick="document.getElementById('addRuleBtn').click()">添加第一个规则</button>
       </div>
     `;
     return;

@@ -479,6 +479,52 @@ h1 {
   overflow: hidden;
 }
 
+/* 自动完成下拉菜单样式 */
+.autocomplete-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.autocomplete-suggestion {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s;
+}
+
+.autocomplete-suggestion:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-suggestion:hover,
+.autocomplete-suggestion.autocomplete-active {
+  background-color: #f0f0f0;
+}
+
+.autocomplete-suggestion strong {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
 .url-group-header {
   background: #f5f5f5;
   padding: 12px 15px;

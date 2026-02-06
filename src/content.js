@@ -63,7 +63,8 @@ function matchesCurrentUrl(rule) {
 // 执行单个规则
 async function executeRule(rule) {
   try {
-    const elements = await findElements(rule.selector, rule.selectorType);
+    // 尝试多次查找元素，以应对页面加载缓慢的情况
+    const elements = await waitForElements(rule.selector, rule.selectorType, 3000); // 减少等待时间
     
     if (elements.length === 0) {
       throw new Error(`未找到匹配的元素: ${rule.selector}`);
@@ -92,33 +93,73 @@ async function executeRule(rule) {
   }
 }
 
-// 查找元素
+// 等待元素出现，最多等待指定时间
+function waitForElements(selector, selectorType, timeoutMs = 3000) { // 减少默认超时时间
+  return new Promise((resolve) => {
+    let elements = [];
+    
+    // 立即尝试查找元素
+    elements = findElementsSync(selector, selectorType);
+    if (elements.length > 0) {
+      resolve(elements);
+      return;
+    }
+    
+    // 设置轮询，定期检查元素是否存在
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      elements = findElementsSync(selector, selectorType);
+      
+      if (elements.length > 0) {
+        clearInterval(interval);
+        resolve(elements);
+      } else if (Date.now() - startTime >= timeoutMs) {
+        // 超时，停止轮询
+        clearInterval(interval);
+        resolve([]);
+      }
+    }, 50); // 更频繁地检查（50ms），以更快响应
+  });
+}
+
+// 同步查找元素
+function findElementsSync(selector, selectorType) {
+  try {
+    let elements = [];
+    
+    if (selectorType === 'css') {
+      // 使用CSS选择器
+      elements = Array.from(document.querySelectorAll(selector));
+    } else if (selectorType === 'xpath') {
+      // 使用XPath
+      const xpathResult = document.evaluate(
+        selector,
+        document,
+        null,
+        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+        null
+      );
+      
+      for (let i = 0; i < xpathResult.snapshotLength; i++) {
+        elements.push(xpathResult.snapshotItem(i));
+      }
+    } else {
+      console.error(`不支持的选择器类型: ${selectorType}`);
+      return [];
+    }
+    
+    return elements;
+  } catch (error) {
+    console.error('查找元素时发生错误:', error);
+    return [];
+  }
+}
+
+// 查找元素（保留原始方法用于向后兼容）
 function findElements(selector, selectorType) {
   return new Promise((resolve, reject) => {
     try {
-      let elements = [];
-      
-      if (selectorType === 'css') {
-        // 使用CSS选择器
-        elements = Array.from(document.querySelectorAll(selector));
-      } else if (selectorType === 'xpath') {
-        // 使用XPath
-        const xpathResult = document.evaluate(
-          selector,
-          document,
-          null,
-          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-          null
-        );
-        
-        for (let i = 0; i < xpathResult.snapshotLength; i++) {
-          elements.push(xpathResult.snapshotItem(i));
-        }
-      } else {
-        reject(new Error(`不支持的选择器类型: ${selectorType}`));
-        return;
-      }
-      
+      const elements = findElementsSync(selector, selectorType);
       resolve(elements);
     } catch (error) {
       reject(error);
@@ -130,38 +171,64 @@ function findElements(selector, selectorType) {
 function fillElement(element, value) {
   return new Promise((resolve, reject) => {
     try {
-      // 触发focus事件
-      element.focus();
-      element.dispatchEvent(new Event('focus', { bubbles: true }));
-      
-      // 清空现有值
-      if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-        element.value = '';
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-      } else if (element.isContentEditable) {
-        element.textContent = '';
-      }
-      
-      // 设置新值
-      if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-        element.value = value;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (element.isContentEditable) {
-        element.textContent = value;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
+      // 确保元素可见且可交互
+      if (!isElementVisible(element)) {
+        // 如果元素不可见，等待一段时间再尝试
+        setTimeout(() => {
+          if (isElementVisible(element)) {
+            performFill(element, value);
+            resolve();
+          } else {
+            // 即使不可见也尝试填充，某些情况下仍然有效
+            performFill(element, value);
+            resolve();
+          }
+        }, 200); // 减少等待时间
       } else {
-        element.setAttribute('value', value);
+        performFill(element, value);
+        resolve();
       }
-      
-      // 触发blur事件
-      element.dispatchEvent(new Event('blur', { bubbles: true }));
-      
-      resolve();
     } catch (error) {
       reject(error);
     }
   });
+}
+
+// 检查元素是否可见
+function isElementVisible(element) {
+  return element.offsetWidth > 0 
+    && element.offsetHeight > 0 
+    && element.getClientRects().length > 0;
+}
+
+// 执行填充操作
+function performFill(element, value) {
+  // 触发focus事件
+  element.focus();
+  element.dispatchEvent(new Event('focus', { bubbles: true }));
+  
+  // 清空现有值
+  if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+    element.value = '';
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (element.isContentEditable) {
+    element.textContent = '';
+  }
+  
+  // 设置新值
+  if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+    element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (element.isContentEditable) {
+    element.textContent = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    element.setAttribute('value', value);
+  }
+  
+  // 触发blur事件
+  element.dispatchEvent(new Event('blur', { bubbles: true }));
 }
 
 // 执行匹配当前URL的所有规则 - 优化：批量读取和缓存
@@ -197,29 +264,28 @@ async function executeMatchingRules() {
       return { executed: 0, message: '没有匹配当前URL的规则' };
     }
     
-    // 并行执行规则（优化性能）
-    const results = await Promise.allSettled(
-      matchingRules.map(async (rule) => {
-        try {
-          const result = await executeRule(rule);
-          return { 
-            ruleId: rule.id, 
-            success: true, 
-            result 
-          };
-        } catch (error) {
-          return { 
-            ruleId: rule.id, 
-            success: false, 
-            error: error.message 
-          };
-        }
-      })
-    );
+    // 串行执行规则而不是并行，避免在慢速设备上造成性能问题
+    const results = [];
+    for (const rule of matchingRules) {
+      try {
+        const result = await executeRule(rule);
+        results.push({ 
+          ruleId: rule.id, 
+          success: true, 
+          result 
+        });
+      } catch (error) {
+        results.push({ 
+          ruleId: rule.id, 
+          success: false, 
+          error: error.message 
+        });
+      }
+    }
     
     return {
       executed: matchingRules.length,
-      results: results.map(r => r.value || r.reason)
+      results
     };
   } catch (error) {
     console.error('执行规则失败:', error);
@@ -232,14 +298,12 @@ function autoExecuteRules() {
   // 等待页面完全加载
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        executeMatchingRules().catch(console.error);
-      }, 1000); // 延迟1秒执行，确保页面完全加载
+      // 不再使用延迟，立即执行
+      executeMatchingRules().catch(console.error);
     });
   } else {
-    setTimeout(() => {
-      executeMatchingRules().catch(console.error);
-    }, 1000);
+    // DOM已经加载，立即执行
+    executeMatchingRules().catch(console.error);
   }
 }
 
@@ -268,7 +332,7 @@ const urlObserver = new MutationObserver(() => {
             isExecuting = false;
           });
       }
-    }, 500);
+    }, 500); // 减少URL变化的延迟
   }
 });
 
