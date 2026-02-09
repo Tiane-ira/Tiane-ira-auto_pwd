@@ -15,7 +15,15 @@
           <input type="checkbox" id="autoFillToggle" checked>
           <span class="switch-label">自动填充</span>
         </label>
+        
         <button id="addRuleBtn" class="btn btn-primary">+ 添加规则</button>
+        <div class="dropdown">
+          <button id="moreOptionsBtn" class="btn btn-secondary">...</button>
+          <div id="moreOptionsDropdown" class="dropdown-content">
+            <button id="exportRulesBtn" class="dropdown-item">导出规则</button>
+            <button id="importRulesBtn" class="dropdown-item">导入规则</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -36,6 +44,23 @@
     <div id="allTab" class="tab-content">
       <div id="allRulesList" class="rules-list">
         <!-- 按网址分组的规则将动态生成 -->
+      </div>
+    </div>
+
+    <!-- 导入规则确认模态框 -->
+    <div id="importModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>导入规则</h2>
+          <span class="close-import">&times;</span>
+        </div>
+        <div class="modal-body">
+          <p>您确定要导入新的规则吗？这将会覆盖现有的所有规则。</p>
+          <div class="form-actions">
+            <button type="button" id="confirmImportBtn" class="btn btn-danger">确认导入</button>
+            <button type="button" class="btn btn-secondary" id="cancelImportBtn">取消</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -91,4 +116,3 @@
   <script src="popup.js"></script>
 </body>
 </html>
-

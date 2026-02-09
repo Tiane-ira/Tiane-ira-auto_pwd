@@ -13,6 +13,14 @@ let renderDebounceTimer = null; // 渲染防抖定时器
 
 // DOM元素
 const addRuleBtn = document.getElementById('addRuleBtn');
+const moreOptionsBtn = document.getElementById('moreOptionsBtn');
+const moreOptionsDropdown = document.getElementById('moreOptionsDropdown');
+const exportRulesBtn = document.getElementById('exportRulesBtn');
+const importRulesBtn = document.getElementById('importRulesBtn');
+const importModal = document.getElementById('importModal');
+const confirmImportBtn = document.getElementById('confirmImportBtn');
+const cancelImportBtn = document.getElementById('cancelImportBtn');
+const closeImportModal = document.querySelector('.close-import');
 const currentRulesList = document.getElementById('currentRulesList');
 const allRulesList = document.getElementById('allRulesList');
 const ruleModal = document.getElementById('ruleModal');
@@ -109,6 +117,30 @@ function matchUrl(currentUrl, ruleUrl) {
   }
   
   return false;
+}
+
+// 检查规则是否匹配当前URL - 优化：缓存匹配结果
+function matchesCurrentUrl(rule) {
+  if (!rule.urls || rule.urls.length === 0) {
+    return false;
+  }
+  
+  // 生成缓存键
+  const cacheKey = `${rule.id}_${currentPageUrl}`;
+  if (matchCache.has(cacheKey)) {
+    return matchCache.get(cacheKey);
+  }
+  
+  const result = rule.urls.some(url => matchUrl(currentPageUrl, url));
+  
+  // 缓存结果（限制缓存大小）
+  if (matchCache.size > 200) {
+    const firstKey = matchCache.keys().next().value;
+    matchCache.delete(firstKey);
+  }
+  matchCache.set(cacheKey, result);
+  
+  return result;
 }
 
 // 检查规则是否匹配当前URL - 优化：缓存匹配结果
@@ -267,6 +299,9 @@ function setActive(items, index) {
 // 设置事件监听器
 function setupEventListeners() {
   addRuleBtn.addEventListener('click', () => openModal());
+  moreOptionsBtn.addEventListener('click', toggleMoreOptions);
+  exportRulesBtn.addEventListener('click', exportRules);
+  importRulesBtn.addEventListener('click', importRules);
   closeModal.addEventListener('click', () => closeModalWindow());
   cancelBtn.addEventListener('click', () => closeModalWindow());
   ruleForm.addEventListener('submit', handleFormSubmit);
@@ -278,6 +313,11 @@ function setupEventListeners() {
       addUrlFromInput();
     }
   });
+  
+  // 导入确认模态框事件
+  confirmImportBtn.addEventListener('click', confirmImportRules);
+  cancelImportBtn.addEventListener('click', () => hideImportModal());
+  closeImportModal.addEventListener('click', () => hideImportModal());
   
   // 自动完成初始化
   initAutocomplete();
@@ -318,7 +358,133 @@ function setupEventListeners() {
     if (e.target === ruleModal) {
       closeModalWindow();
     }
+    if (e.target === importModal) {
+      hideImportModal();
+    }
+    // 点击下拉菜单外部关闭
+    if (!moreOptionsBtn.contains(e.target) && !moreOptionsDropdown.contains(e.target)) {
+      closeMoreOptions();
+    }
   });
+}
+
+// 切换更多选项下拉菜单
+function toggleMoreOptions() {
+  moreOptionsDropdown.classList.toggle('show');
+}
+
+// 关闭更多选项下拉菜单
+function closeMoreOptions() {
+  moreOptionsDropdown.classList.remove('show');
+}
+
+// 导出规则
+function exportRules() {
+  if (rules.length === 0) {
+    alert('没有规则可以导出');
+    return;
+  }
+  
+  // 创建包含规则数据的对象
+  const exportData = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    rules: JSON.parse(JSON.stringify(rules)) // 深拷贝，防止意外修改
+  };
+  
+  // 创建Blob对象
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  
+  // 创建下载链接
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `auto-fill-rules-backup-${new Date().toISOString().slice(0, 19)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  
+  // 清理
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+  // 关闭下拉菜单
+  closeMoreOptions();
+}
+
+// 导入规则
+function importRules() {
+  // 创建文件输入元素
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json,application/json';
+  fileInput.onchange = handleFileSelect;
+  document.body.appendChild(fileInput);
+  fileInput.click();
+  document.body.removeChild(fileInput);
+  // 关闭下拉菜单
+  closeMoreOptions();
+}
+
+// 处理文件选择
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      
+      // 验证数据格式
+      if (!data.rules || !Array.isArray(data.rules)) {
+        alert('无效的规则文件格式');
+        return;
+      }
+      
+      // 保存待导入的规则
+      window.tempImportedRules = data.rules;
+      
+      // 显示确认对话框
+      showImportModal();
+    } catch (error) {
+      console.error('解析规则文件失败:', error);
+      alert('解析规则文件失败，请检查文件格式');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// 显示导入确认模态框
+function showImportModal() {
+  importModal.style.display = 'block';
+}
+
+// 隐藏导入确认模态框
+function hideImportModal() {
+  importModal.style.display = 'none';
+  window.tempImportedRules = null;
+}
+
+// 确认导入规则
+async function confirmImportRules() {
+  if (!window.tempImportedRules) {
+    alert('没有待导入的规则');
+    return;
+  }
+  
+  // 将导入的规则赋值给全局rules变量
+  rules = window.tempImportedRules;
+  
+  // 保存规则
+  await saveRules();
+  
+  // 关闭模态框并清理临时数据
+  hideImportModal();
+  window.tempImportedRules = null;
+  
+  // 显示成功消息
+  showNotification(`成功导入 ${rules.length} 条规则`);
 }
 
 // 处理规则列表点击事件
